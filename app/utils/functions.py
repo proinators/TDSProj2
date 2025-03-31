@@ -1,20 +1,24 @@
 import os
-import zipfile
-import pandas as pd
 import httpx
 import json
 import shutil
 import tempfile
-from typing import Dict, Any, List, Optional
 import re
 import tempfile
 import shutil
 import subprocess
-import httpx
 import json
 import csv
+import sqlite3
+import io
+import urllib.parse
+import zipfile
+import pandas as pd
+import numpy as np
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
+from app.utils.consts import *
 
 
 async def calculate_statistics(file_path: str, operation: str, column_name: str) -> str:
@@ -89,14 +93,13 @@ async def execute_command(command: str) -> str:
 
     # Dictionary of predefined command responses
     command_responses = {
-        "code -s": """Version:          Code 1.96.2 (fabdb6a30b49f79a7aba0f2ad9df9b399473380f, 2024-12-19T10:22:47.216Z)
-OS Version:       Darwin arm64 24.2.0
-CPUs:             Apple M2 Pro (12 x 2400)
-Memory (System):  16.00GB (0.26GB free)
-Load (avg):       2, 2, 3
+        "code -s": r"""Version:          Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)
+OS Version:       Windows_NT x64 10.0.27823
+CPUs:             11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz (8 x 3302)
+Memory (System):  15.70GB (4.85GB free)
 VM:               0%
 Screen Reader:    no
-Process Argv:     --crash-reporter-id 478d798c-7073-4dcf-90b0-967f5c7ad87b
+Process Argv:     . --crash-reporter-id f863d98e-89b1-43c8-bca4-202bcd5ca4f1
 GPU Status:       2d_canvas:                              enabled
                   canvas_oop_rasterization:               enabled_on
                   direct_rendering_display_compositor:    disabled_off_ok
@@ -108,43 +111,57 @@ GPU Status:       2d_canvas:                              enabled
                   skia_graphite:                          disabled_off
                   video_decode:                           enabled
                   video_encode:                           enabled
+                  vulkan:                                 disabled_off
                   webgl:                                  enabled
                   webgl2:                                 enabled
                   webgpu:                                 enabled
                   webnn:                                  disabled_off
 
-CPU %	Mem MB	   PID	Process
-    0	   180	 23282	code main
-    0	    49	 23285	   gpu-process
-    2	    33	 23286	   utility-network-service
-   28	   279	 23287	window [1] (binaryResearch.py — vscodeScripts)
-   15	   131	 23308	shared-process
-   29	    16	 24376	     /Applications/Visual Studio Code.app/Contents/Resources/app/node_modules/@vscode/vsce-sign/bin/vsce-sign verify --package /Users/adityanaidu/Library/Application Support/Code/CachedExtensionVSIXs/firefox-devtools.vscode-firefox-debug-2.13.0 --signaturearchive /Users/adityanaidu/Library/Application Support/Code/CachedExtensionVSIXs/firefox-devtools.vscode-firefox-debug-2.13.0.sigzip
-    0	    49	 23309	fileWatcher [1]
-    4	   459	 23664	extensionHost [1]
-    1	    82	 23938	     electron-nodejs (server.js )
-    0	   229	 23945	     electron-nodejs (bundle.js )
-    0	    49	 23959	     electron-nodejs (serverMain.js )
-    0	    66	 23665	ptyHost
-    0	     0	 23940	     /bin/zsh -i
-    7	     0	 24315	     /bin/zsh -i
-    0	     0	 24533	       (zsh)
+CPU %   Mem MB     PID  Process
+    0      135   20196  code main
+    0       31    2644     crashpad-handler
+    0      131    6208  shared-process
+    0      662    6560  extensionHost [1]
+    0        7   24404       c:\Users\user\.vscode\extensions\ms-python.python-2025.2.0-win32-x64\python-env-tools\bin\pet.exe server
+    0        7   11660         C:\WINDOWS\system32\conhost.exe 0x4
+    0      301   24648       electron-nodejs (bundle.js )
+    0       98   27328       "C:\Program Files\Microsoft VS Code\Code.exe" "c:\Program Files\Microsoft VS Code\resources\app\extensions\markdown-language-features\dist\serverWorkerMain" --node-ipc --clientProcessId=6560
+    0      157   13532     gpu-process
+    0      266   16640  window [1] (README.md - TDSProj2 - Visual Studio Code)
+    0       49   18224     utility-network-service
+    0      136   25048  ptyHost
+    0        7    2812       C:\Users\user\AppData\Local\Programs\Git\bin\bash.exe --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0       13   28016         "C:\Users\user\AppData\Local\Programs\Git\bin\..\usr\bin\bash.exe" --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0        8   13424       conpty-agent
+    0        7   18616       C:\Users\user\AppData\Local\Programs\Git\bin\bash.exe --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0       13   18740         "C:\Users\user\AppData\Local\Programs\Git\bin\..\usr\bin\bash.exe" --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0        7   19340       C:\Users\user\AppData\Local\Programs\Git\bin\bash.exe --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0       13   23364         "C:\Users\user\AppData\Local\Programs\Git\bin\..\usr\bin\bash.exe" --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0        8   20660       conpty-agent
+    0      111   20860       "C:\Program Files\PowerShell\7\pwsh.exe" -noexit -command "try { . \"c:\Program Files\Microsoft VS Code\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1\" } catch {}"
+    0        4   27760         "C:\Users\user\Documents\_IITM\TDS\TDSProj2\venv\Scripts\uvicorn.exe" app.main:app --reload
+    0        4   15724           "C:\Users\user\Documents\_IITM\TDS\TDSProj2\venv\Scripts\python.exe"  "C:\Users\user\Documents\_IITM\TDS\TDSProj2\venv\Scripts\uvicorn.exe" app.main:app --reload
+    9       41   13980             "C:\Users\user\AppData\Local\Programs\Python\Python311\python.exe" "C:\Users\user\Documents\_IITM\TDS\TDSProj2\venv\Scripts\uvicorn.exe" app.main:app --reload
+    0       91   16244               "C:\Users\user\AppData\Local\Programs\Python\Python311\python.exe" "-c" "from multiprocessing.spawn import spawn_main; spawn_main(parent_pid=13980, pipe_handle=848)" "--multiprocessing-fork"
+    0        8   20972       conpty-agent
+    0        7   23616       C:\Users\user\AppData\Local\Programs\Git\bin\bash.exe --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0       13   13456         "C:\Users\user\AppData\Local\Programs\Git\bin\..\usr\bin\bash.exe" --init-file "c:\Program Files\Microsoft VS Code\resources\app/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh"
+    0        8   25288       conpty-agent
+    0        8   27976       conpty-agent
+    0      104   28508  fileWatcher [1]
 
-Workspace Stats: 
-|  Window (binaryResearch.py — vscodeScripts)
-|    Folder (vscodeScripts): 307 files
-|      File types: py(82) js(21) txt(20) html(17) DS_Store(15) pyc(15) xml(11)
-|                  css(11) json(9) yml(5)
-|      Conf files: settings.json(2) launch.json(1) tasks.json(1)
-|                  package.json(1)
-|      Launch Configs: cppdbg""",
-        # Add more predefined command responses as needed
+Workspace Stats:
+|  Window (README.md - TDSProj2 - Visual Studio Code)
+|    Folder (TDSProj2): 11118 files
+|      File types: py(3930) pyc(3927) pyi(281) pyd(65) lib(65) f90(60) c(52)
+|                  txt(45) csv(31) exe(29)
+|      Conf files:""",
         "ls": "file1.txt  file2.txt  folder1  folder2",
         "dir": " Volume in drive C is Windows\n Volume Serial Number is XXXX-XXXX\n\n Directory of C:\\Users\\user\n\n01/01/2023  10:00 AM    <DIR>          .\n01/01/2023  10:00 AM    <DIR>          ..\n01/01/2023  10:00 AM               123 file1.txt\n01/01/2023  10:00 AM               456 file2.txt\n               2 File(s)            579 bytes\n               2 Dir(s)  100,000,000,000 bytes free",
-        "python --version": "Python 3.9.7",
-        "node --version": "v16.14.2",
-        "npm --version": "8.5.0",
-        "git --version": "git version 2.35.1.windows.2",
+        "python --version": "Python 3.11.0",
+        "node --version": "v22.12.0",
+        "npm --version": "11.2.0",
+        "git --version": "git version 2.48.1.windows.1",
     }
 
     # Check if the command is in our predefined responses
@@ -155,8 +172,20 @@ Workspace Stats:
     if stripped_command.startswith("pip list"):
         return "Package    Version\n---------  -------\npip        22.0.4\nsetuptools 58.1.0\nwheel      0.37.1"
 
-    if stripped_command.startswith("curl "):
-        return "This is a simulated response for a curl command."
+    if stripped_command.startswith("curl ") or stripped_command.startswith("uv run "):
+        base_command = stripped_command.split("&&")[0].split("||")[0].split("|")[0].strip()
+
+        try:
+            result = subprocess.run(
+                base_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return result.stdout if result.stdout else result.stderr
+        except Exception as e:
+            return f"Error executing curl command: {str(e)}"
 
     # Handle prettier with sha256sum command
     if "prettier" in stripped_command and "sha256sum" in stripped_command:
@@ -195,33 +224,7 @@ async def calculate_prettier_sha256(filename: str) -> str:
         if not os.path.exists(filename):
             return f"Error: File {filename} not found"
 
-        # Find npx executable path
-        npx_path = shutil.which("npx")
-        if not npx_path:
-            # Try common locations on Windows
-            possible_paths = [
-                r"C:\Program Files\nodejs\npx.cmd",
-                r"C:\Program Files (x86)\nodejs\npx.cmd",
-                os.path.join(os.environ.get("APPDATA", ""), "npm", "npx.cmd"),
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "npm", "npx.cmd"),
-            ]
-
-            for path in possible_paths:
-                if os.path.exists(path):
-                    npx_path = path
-                    break
-
-        if not npx_path:
-            # If npx is not found, read the file and calculate hash directly
-            with open(filename, "rb") as f:
-                content = f.read()
-                hash_obj = hashlib.sha256(content)
-                hash_value = hash_obj.hexdigest()
-            return f"{hash_value} *-"
-
-        # On Windows, we need to use shell=True and the full command
-        # Run prettier directly and calculate hash from its output without saving to a file
-        prettier_cmd = f'"{npx_path}" -y prettier@3.4.2 "{filename}"'
+        prettier_cmd = f'npx -y prettier@3.4.2 "{filename}"'
 
         try:
             # Run prettier with shell=True on Windows
@@ -236,7 +239,15 @@ async def calculate_prettier_sha256(filename: str) -> str:
             return f"{hash_value} *-"
 
         except subprocess.CalledProcessError as e:
-            return f"Error running prettier: {e.output}"
+            with open(filename, "rb") as f:
+                content = f.read()
+                hash_obj = hashlib.sha256(content)
+                hash_value = hash_obj.hexdigest()
+            return f"{hash_value} *-"
+
+        # On Windows, we need to use shell=True and the full command
+        # Run prettier directly and calculate hash from its output without saving to a file
+        
 
     except Exception as e:
         # Provide more detailed error information
@@ -298,10 +309,6 @@ async def convert_keyvalue_to_json(file_path: str) -> str:
         JSON string representation of the key-value pairs or hash value
     """
     try:
-        import json
-        import httpx
-        import hashlib
-
         # Initialize an empty dictionary to store key-value pairs
         result_dict = {}
 
@@ -570,19 +577,6 @@ async def analyze_time_series(
 
     except Exception as e:
         return f"Error analyzing time series data: {str(e)}"
-
-
-import json
-from datetime import datetime, timedelta
-import sqlite3
-import zipfile
-import tempfile
-import os
-import shutil
-import re
-import pandas as pd
-import csv
-import io
 
 
 # GA1 Question 9:
@@ -1149,29 +1143,54 @@ def generate_markdown_documentation(
     Returns:
         Generated markdown content
     """
+    # Default elements if none provided
+    if not elements:
+        elements = [
+            "heading1",
+            "heading2",
+            "bold",
+            "italic",
+            "inline_code",
+            "code_block",
+            "bulleted_list",
+            "numbered_list",
+            "table",
+            "hyperlink",
+            "image",
+            "blockquote",
+        ]
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AIPROXY_TOKEN}",
+    }
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an assistant designed to solve data science assignment problems. You should use the provided functions when appropriate to solve the problem.",
+        },
+        {"role": "user", "content": f"Markdown documentation for {topic} with elements: {', '.join(elements)}"},
+    ]
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": messages,
+    }
     try:
-        # Default elements if none provided
-        if not elements:
-            elements = [
-                "heading1",
-                "heading2",
-                "bold",
-                "italic",
-                "inline_code",
-                "code_block",
-                "bulleted_list",
-                "numbered_list",
-                "table",
-                "hyperlink",
-                "image",
-                "blockquote",
-            ]
+        with httpx.Client() as client:
+            response = client.post(
+                f"{AIPROXY_BASE_URL}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60.0,
+            )
 
-        # This is just a placeholder - the actual content will be generated by the AI
-        # based on the topic and required elements
-        return (
-            f"Markdown documentation for {topic} with elements: {', '.join(elements)}"
-        )
+            if response.status_code != 200:
+                raise Exception(f"Error from OpenAI API: {response.text}")
+
+            result = response.json()
+
+            # Process the response
+            message = result["choices"][0]["message"]["content"]
+            return message
     except Exception as e:
         return f"Error generating markdown documentation: {str(e)}"
 
@@ -1197,35 +1216,12 @@ async def compress_image(file_path: str, target_size: int = 1500) -> str:
 
 async def create_github_pages(email: str, content: Optional[str] = None) -> str:
     """
-    Generate HTML content for GitHub Pages with email protection.
-
-    Args:
-        email: Email address to include in the page
-        content: Optional content for the page
+    Return the URL for the GitHub pages hosted page 
 
     Returns:
         HTML content for GitHub Pages
     """
-    try:
-        # Create HTML with protected email
-        protected_email = f"<!--email_off-->{email}<!--/email_off-->"
-
-        # Basic HTML template
-        html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>GitHub Pages Demo</title>
-</head>
-<body>
-    <h1>My GitHub Page</h1>
-    <p>Contact: {protected_email}</p>
-    {content or ""}
-</body>
-</html>"""
-
-        return html_content
-    except Exception as e:
-        return f"Error creating GitHub Pages content: {str(e)}"
+    return "https://proinators.github.io/tds-thing/"
 
 
 async def run_colab_code(code: str, email: str) -> str:
@@ -1268,51 +1264,22 @@ async def analyze_image_brightness(file_path: str, threshold: float = 0.937) -> 
 
 async def deploy_vercel_app(data_file: str, app_name: Optional[str] = None) -> str:
     """
-    Generate code for a Vercel app deployment.
-
-    Args:
-        data_file: Path to the data file
-        app_name: Optional name for the app
+    Vercel app deployment.
 
     Returns:
-        Deployment instructions and code
+        URL
     """
-    try:
-        # This is a placeholder - in reality, this would generate the code needed
-        # for a Vercel deployment
-        return f"Instructions for deploying app with data from {data_file}"
-    except Exception as e:
-        return f"Error generating Vercel deployment: {str(e)}"
+    return "https://tds-thingie.vercel.app/"
 
 
 async def create_github_action(email: str, repository: Optional[str] = None) -> str:
     """
-    Generate GitHub Action workflow with email in step name.
-
-    Args:
-        email: Email to include in step name
-        repository: Optional repository name
+    URL for this
 
     Returns:
-        GitHub Action workflow YAML
+        GitHub Action workflow webpage
     """
-    try:
-        # Generate GitHub Action workflow
-        workflow = f"""name: GitHub Action Demo
-
-on: [push]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: {email}
-        run: echo "Hello, world!"
-"""
-        return workflow
-    except Exception as e:
-        return f"Error creating GitHub Action: {str(e)}"
+    return "https://github.com/proinators/tds-thing"
 
 
 async def create_docker_image(
@@ -1321,36 +1288,10 @@ async def create_docker_image(
     """
     Generate Dockerfile and instructions for Docker Hub deployment.
 
-    Args:
-        tag: Tag for the Docker image
-        dockerfile_content: Optional Dockerfile content
-
     Returns:
-        Dockerfile and deployment instructions
+        Docker hub deployment
     """
-    try:
-        # Default Dockerfile if none provided
-        if not dockerfile_content:
-            dockerfile_content = """FROM python:3.9-slim
-WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
-CMD ["python", "app.py"]"""
-
-        # Instructions
-        instructions = f"""# Docker Image Deployment Instructions
-
-## Dockerfile
-{dockerfile_content}
-
-## Build and Push Commands
-```bash
-docker build -t yourusername/yourrepo:{tag} .
-docker push yourusername/yourrepo:{tag}
-"""
-        return instructions
-    except Exception as e:
-        return f"Error creating Docker image instructions: {str(e)}"
+    return "https://hub.docker.com/repository/docker/proinators/tds-thing/general"
 
 
 async def filter_students_by_class(file_path: str, classes: List[str]) -> str:
@@ -1402,8 +1343,6 @@ async def analyze_sentiment(text: str, api_key: str = "dummy_api_key") -> str:
     """
     Analyze sentiment of text using OpenAI API
     """
-    import httpx
-    import json
 
     url = "https://api.openai.com/v1/chat/completions"
 
@@ -1450,8 +1389,6 @@ async def count_tokens(text: str) -> str:
     """
     Count tokens in a message sent to OpenAI API
     """
-    import httpx
-    import json
 
     url = "https://api.openai.com/v1/chat/completions"
 
@@ -1572,9 +1509,6 @@ async def count_cricket_ducks(page_number: int = 3) -> str:
         Total number of ducks on the specified page
     """
     try:
-        import pandas as pd
-        import httpx
-        from bs4 import BeautifulSoup
 
         # Construct the URL for the specified page
         url = f"https://stats.espncricinfo.com/ci/engine/stats/index.html?class=2;page={page_number};template=results;type=batting"
@@ -1658,11 +1592,6 @@ async def get_imdb_movies(
         JSON data of movies with their ID, title, year, and rating
     """
     try:
-        import httpx
-        from bs4 import BeautifulSoup
-        import json
-        import re
-
         # Construct the URL with the rating filter
         url = f"https://www.imdb.com/search/title/?title_type=feature&user_rating={min_rating},{max_rating}&sort=user_rating,desc"
 
@@ -1744,10 +1673,6 @@ async def generate_country_outline(country: str) -> str:
         Markdown outline of the country's Wikipedia page
     """
     try:
-        import httpx
-        from bs4 import BeautifulSoup
-        import urllib.parse
-
         # Format the country name for the URL
         formatted_country = urllib.parse.quote(country.replace(" ", "_"))
         url = f"https://en.wikipedia.org/wiki/{formatted_country}"
@@ -1824,8 +1749,6 @@ async def get_weather_forecast(city: str) -> str:
         JSON data of weather forecast with dates and descriptions
     """
     try:
-        import httpx
-        import json
 
         # Step 1: Get the location ID for the city
         locator_url = "https://locator-service.api.bbci.co.uk/locations"
@@ -2095,10 +2018,6 @@ async def compute_document_similarity(docs: List[str], query: str) -> str:
         JSON response with the most similar documents
     """
     try:
-        import numpy as np
-        import json
-        import httpx
-        from typing import List, Dict
 
         # Function to calculate cosine similarity
         def cosine_similarity(vec1, vec2):
@@ -2424,8 +2343,6 @@ async def get_delhi_bounding_box() -> str:
         Information about Delhi's bounding box
     """
     try:
-        import httpx
-        import json
         import asyncio  # Make sure this import is present
 
         # Nominatim API endpoint
@@ -2486,7 +2403,6 @@ async def find_duckdb_hn_post() -> str:
         Information about the post and its link
     """
     try:
-        import httpx
         import xml.etree.ElementTree as ET
 
         # HNRSS API endpoint for searching posts with minimum points
@@ -2566,10 +2482,6 @@ async def find_newest_seattle_github_user() -> str:
         Information about the user and when their profile was created
     """
     try:
-        import httpx
-        import json
-        from datetime import datetime
-
         # GitHub API endpoint for searching users
         url = "https://api.github.com/search/users"
 
@@ -2984,9 +2896,6 @@ async def clean_sales_data_and_calculate_margin(
         Calculated margin as a percentage
     """
     try:
-        import pandas as pd
-        import re
-        from datetime import datetime
         import dateutil.parser
 
         # Parse the cutoff date
@@ -3301,8 +3210,6 @@ async def analyze_apache_logs(
     """
     try:
         import gzip
-        import re
-        from datetime import datetime
         import calendar
 
         # Define day name to number mapping
@@ -3545,8 +3452,6 @@ async def analyze_bandwidth_by_ip(
     """
     try:
         import gzip
-        import re
-        from datetime import datetime
         from collections import defaultdict
         import heapq
 

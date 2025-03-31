@@ -8,13 +8,9 @@ import tempfile
 import shutil
 import subprocess
 from typing import Optional, Dict, Any, List
-from dotenv import load_dotenv
 from app.utils.functions import *
+from app.utils.consts import *
 
-load_dotenv()
-
-AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
-AIPROXY_BASE_URL = "https://aiproxy.sanand.workers.dev/openai/v1"
 
 
 async def get_openai_response(question: str, file_path: Optional[str] = None) -> str:
@@ -58,8 +54,6 @@ async def get_openai_response(question: str, file_path: Optional[str] = None) ->
         # If the result looks like a JSON object (starts with {), try to get the hash directly
         if result.startswith("{") and result.endswith("}"):
             try:
-                import httpx
-
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
                         "https://tools-in-data-science.pages.dev/api/hash",
