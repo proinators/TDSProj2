@@ -2164,7 +2164,7 @@ async def compute_similarity(request: SimilarityRequest):
 {fastapi_code}
 ```
 ## API Endpoint
-http://127.0.0.1:8000/similarity
+http://127.0.0.1:8080/similarity
 
 ## Example Request
 {{
@@ -2323,10 +2323,10 @@ async def execute_query(q: str):
 {fastapi_code}
 ```
 ## API Endpoint
-http://127.0.0.1:8000/execute
+http://127.0.0.1:8080/execute
 
 ## Example Request
-GET http://127.0.0.1:8000/execute?q={query.replace(" ", "%20")}
+GET http://127.0.0.1:8080/execute?q={query.replace(" ", "%20")}
 
 ## Example Response
 {json.dumps(response, indent=2)}

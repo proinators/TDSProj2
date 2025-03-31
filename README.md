@@ -21,7 +21,7 @@ Send a POST request to the `/api/` endpoint with:
 
 Example:
 ```bash
-curl -X POST "http://localhost:8000/api/" \
+curl -X POST "http://localhost:8080/api/" \
   -H "Content-Type: multipart/form-data" \
   -F "question=Download and unzip file abcd.zip which has a single extract.csv file inside. What is the value in the 'answer' column of the CSV file?" \
   -F "file=@abcd.zip"
