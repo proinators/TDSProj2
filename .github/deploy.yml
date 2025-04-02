@@ -1,0 +1,28 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Stop Running Service
+        run: sudo systemctl stop tds
+      - name: Pull from Repo
+        run: cd ~/TDSProj2 && git stash && git pull origin main
+      - name: Install Dependencies
+        run: cd ~/TDSProj2 && venv/bin/pip install -r requirements.txt
+      - name: Restart Daemon
+        run: sudo systemctl daemon-reload && sudo systemctl start tds && sudo systemctl enable tds
+      - name: Check Health Status
+        run: |
+          sleep 5
+          sudo systemctl status tds --no-pager
+          if [ $(sudo systemctl is-active tds) != "active" ]; then
+        echo "Service failed to start"
+        exit 1
+          fi
