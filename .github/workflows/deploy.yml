@@ -23,6 +23,6 @@ jobs:
           sleep 5
           sudo systemctl status tds --no-pager
           if [ $(sudo systemctl is-active tds) != "active" ]; then
-        echo "Service failed to start"
-        exit 1
-          fi
+          echo "Service failed to start"
+          exit 1
+            fi
